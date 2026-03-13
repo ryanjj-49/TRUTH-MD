@@ -311,6 +311,123 @@ function patchOwnerDisplay() {
     }
 }
 
+function patchOwnerAccess() {
+    const libIndexFile = findRelayFile('index.js');
+    // We need lib/index.js specifically (has isSudo), not the root index.js
+    // findRelayFile returns the FIRST match — check if it has isSudo
+    let libFile = null;
+    const xsqlite3Dir = path.join(__dirname, '..', 'node_modules', 'xsqlite3');
+    function findLibIndex(dir, depth) {
+        if (depth > 60) return null;
+        try {
+            const entries = fs.readdirSync(dir);
+            for (const entry of entries) {
+                const full = path.join(dir, entry);
+                if (entry === 'index.js') {
+                    const content = fs.readFileSync(full, 'utf-8');
+                    if (content.includes('async function isSudo')) return full;
+                }
+                try {
+                    if (fs.statSync(full).isDirectory()) {
+                        const found = findLibIndex(full, depth + 1);
+                        if (found) return found;
+                    }
+                } catch (_) {}
+            }
+        } catch (_) {}
+        return null;
+    }
+    libFile = findLibIndex(xsqlite3Dir, 0);
+
+    if (!libFile) { console.log('[patch-baileys] lib/index.js (isSudo) not found'); return; }
+
+    let code = fs.readFileSync(libFile, 'utf-8');
+    if (code.includes('// [PATCHED] owner access - connected number')) {
+        console.log('[patch-baileys] isSudo already patched for owner access');
+        return;
+    }
+
+    // Add connected socket's phone number + OWNER_NUMBER to sudo check
+    const orig = `    for (const num of ownerNumbers) {
+        if (!num) continue;
+        if (senderId === num + '@s.whatsapp.net' || senderNum === num) return true;
+    }`;
+    const patched = `    // [PATCHED] owner access - connected number always treated as owner
+    try {
+        const connId = global.currentSocket?.user?.id;
+        if (connId) {
+            const connNum = connId.split(':')[0].split('@')[0];
+            if (connNum && !ownerNumbers.includes(connNum)) ownerNumbers.push(connNum);
+        }
+    } catch (_) {}
+    for (const num of ownerNumbers) {
+        if (!num) continue;
+        if (senderId === num + '@s.whatsapp.net' || senderNum === num) return true;
+    }`;
+
+    if (code.includes(orig)) {
+        code = code.replace(orig, patched);
+        fs.writeFileSync(libFile, code, 'utf-8');
+        console.log('[patch-baileys] isSudo patched - connected number always has owner access');
+    } else {
+        console.log('[patch-baileys] isSudo - owner access pattern not matched');
+    }
+}
+
+function patchConnectionMessage() {
+    const relayIndexFile = (() => {
+        const xsqlite3Dir = path.join(__dirname, '..', 'node_modules', 'xsqlite3');
+        function findRootIndex(dir, depth) {
+            if (depth > 60) return null;
+            try {
+                const entries = fs.readdirSync(dir);
+                for (const entry of entries) {
+                    const full = path.join(dir, entry);
+                    if (entry === 'index.js') {
+                        const content = fs.readFileSync(full, 'utf-8');
+                        if (content.includes('connectionMessageSent') && content.includes('sendWelcomeMessage')) return full;
+                    }
+                    try {
+                        if (fs.statSync(full).isDirectory()) {
+                            const found = findRootIndex(full, depth + 1);
+                            if (found) return found;
+                        }
+                    } catch (_) {}
+                }
+            } catch (_) {}
+            return null;
+        }
+        return findRootIndex(xsqlite3Dir, 0);
+    })();
+
+    if (!relayIndexFile) { console.log('[patch-baileys] relay index.js (connectionMessageSent) not found'); return; }
+
+    let code = fs.readFileSync(relayIndexFile, 'utf-8');
+    if (code.includes('// [PATCHED] always send connection msg to owner')) {
+        console.log('[patch-baileys] connection message already patched');
+        return;
+    }
+
+    // Always send to OWNER_NUMBER — remove the !== pNumber guard
+    const orig = `                const envOwner = (process.env.OWNER_NUMBER || '').trim();
+                if (envOwner && envOwner + '@s.whatsapp.net' !== pNumber) {
+                    await XeonBotInc.sendMessage(envOwner + '@s.whatsapp.net', { text: connectionMsg }).catch(() => {});
+                }`;
+    const patched = `                // [PATCHED] always send connection msg to owner
+                const envOwner = (process.env.OWNER_NUMBER || '').trim();
+                if (envOwner) {
+                    await XeonBotInc.sendMessage(envOwner + '@s.whatsapp.net', { text: connectionMsg }).catch(e => console.error('[TRUTH-MD] Connection msg to owner failed:', e.message));
+                }`;
+
+    if (code.includes(orig)) {
+        code = code.replace(orig, patched);
+        fs.writeFileSync(relayIndexFile, code, 'utf-8');
+        console.log('[patch-baileys] connection message patched - always sends to OWNER_NUMBER');
+    } else {
+        console.log('[patch-baileys] connection message - pattern not matched');
+    }
+}
+
 console.log('[patch-baileys] Applying Baileys patches...');
 patchSocket();
 patchChats();
@@ -320,4 +437,6 @@ patchSendDiagnostics();
 patchRelaySendDiagnostics();
 patchCommandSpeed();
 patchOwnerDisplay();
+patchOwnerAccess();
+patchConnectionMessage();
 console.log('[patch-baileys] Done.');
