@@ -3,6 +3,27 @@ const OWNER_NUMBER = process.env.OWNER_NUMBER;
 
 console.log('[TRUTH-MD] Preload running. SESSION_ID present:', !!SESSION_ID, '| OWNER_NUMBER present:', !!OWNER_NUMBER);
 
+// Patch Module._load to intercept every require() call and log failures
+const Module = require('module');
+const _origModuleLoad = Module._load;
+Module._load = function(request, parent, isMain) {
+  try {
+    return _origModuleLoad.call(this, request, parent, isMain);
+  } catch(e) {
+    console.error('[TRUTH-MD] require("' + request + '") FAILED:', e.message);
+    throw e;
+  }
+};
+
+// Patch process.reallyExit — lower level than process.exit, bypasses exit event
+const _origReallyExit = process.reallyExit;
+if (_origReallyExit) {
+  process.reallyExit = function(code) {
+    console.error('[TRUTH-MD] process.reallyExit(' + code + ') called! Stack:\n' + new Error().stack);
+    _origReallyExit.call(process, code);
+  };
+}
+
 // Patch process.exit so we ALWAYS see why the bot exits, even if it removes listeners
 const _origExit = process.exit.bind(process);
 process.exit = function(code) {
