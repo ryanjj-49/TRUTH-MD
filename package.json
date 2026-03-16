@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "postinstall": "node scripts/patch-baileys.cjs"
+    "postinstall": "node scripts/patch-baileys.cjs",
+    "heroku-postbuild": "npm rebuild sharp --build-from-source || true"
   },
   "author": "courtney",
   "license": "ISC",
@@ -61,5 +62,9 @@
     "youtubedl-core": "^4.11.7",
     "yt-search": "^2.12.1",
     "ytdl-core": "^4.11.5"
+  },
+  "engines": {
+    "node": "20.x",
+    "npm": ">=10"
   }
 }
