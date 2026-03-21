@@ -11,10 +11,6 @@
     "SESSION_ID": {
       "description": "Your WhatsApp session ID (must start with TRUTH-MD:~)",
       "required": false
-    },
-    "OWNER_NUMBER": {
-      "description": "Your WhatsApp number (e.g. 254101150748)",
-      "required": false
     }
   },
   "buildpacks": [],
