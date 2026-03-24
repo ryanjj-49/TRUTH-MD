@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "postinstall": "node scripts/patch-baileys.cjs && npm rebuild better-sqlite3 --build-from-source || true"
+    "postinstall": "node scripts/patch-baileys.cjs || true"
   },
   "author": "courtney",
   "license": "ISC",
@@ -16,7 +16,6 @@
     "adm-zip": "^0.5.16",
     "awesome-phonenumber": "^5.11.0",
     "axios": "^1.13.6",
-    "better-sqlite3": "^11.10.0",
     "chalk": "^4.1.2",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",

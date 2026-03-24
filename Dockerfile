@@ -6,10 +6,7 @@ FROM node:20
 
   COPY package*.json ./
 
-  ENV NPM_CONFIG_BUILD_FROM_SOURCE=true
-
   RUN npm install --legacy-peer-deps --ignore-scripts
-  RUN npm rebuild better-sqlite3 --build-from-source
   RUN node scripts/patch-baileys.cjs || true
   RUN rm -rf node_modules/sharp && npm install --platform=linux --arch=x64 sharp@0.32.6 --legacy-peer-deps
 
